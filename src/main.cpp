@@ -49,8 +49,11 @@ Args parse_args(int argc, char** argv) {
             std::cout << USAGE;
             std::exit(0);
         } else if (a == "--top") {
-            args.top = static_cast<std::size_t>(
-                std::stoull(std::string(require_value(argc, argv, i))));
+            const std::string top_val(require_value(argc, argv, i));
+            if (top_val.empty() || top_val[0] == '-') {
+                throw std::invalid_argument("--top must be a non-negative integer");
+            }
+            args.top = static_cast<std::size_t>(std::stoull(top_val));
         } else if (a == "--files-only") {
             args.files_only = true;
         } else if (a == "--depth") {

@@ -23,7 +23,7 @@ FileSize scan_subtree(const fs::path& dir,
     FileSize subtree_total = 0;
     const fs::directory_iterator end;
     while (it != end) {
-        auto status = it->status(ec);
+        auto sym_status = it->symlink_status(ec);
         if (ec) {
             ++out.errors;
             ec.clear();
@@ -32,7 +32,10 @@ FileSize scan_subtree(const fs::path& dir,
             continue;
         }
 
-        if (fs::is_regular_file(status)) {
+        if (fs::is_symlink(sym_status)) {
+            // Never follow symlinks (matches du default behaviour); this also
+            // prevents infinite recursion when a symlink points to an ancestor.
+        } else if (fs::is_regular_file(sym_status)) {
             const auto sz = it->file_size(ec);
             if (ec) {
                 ++out.errors;
@@ -41,7 +44,7 @@ FileSize scan_subtree(const fs::path& dir,
                 subtree_total += sz;
                 out.files.push_back({it->path(), sz});
             }
-        } else if (fs::is_directory(status)) {
+        } else if (fs::is_directory(sym_status)) {
             const FileSize child_total = scan_subtree(
                 it->path(), depth_from_root + 1, max_report_depth, out);
             subtree_total += child_total;

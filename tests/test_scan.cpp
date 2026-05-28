@@ -103,3 +103,26 @@ TEST_CASE("nonexistent root yields one error") {
     CHECK(r.files.empty());
     CHECK(r.errors >= 1);
 }
+
+TEST_CASE("symlink pointing to ancestor does not cause infinite recursion") {
+    TempDir tmp;
+    const fs::path sub = tmp.path / "sub";
+    fs::create_directories(sub);
+    write_file(sub / "file.bin", 100);
+
+    // Create a symlink inside `sub` that points back to `tmp.path` (the root).
+    // On Windows this requires SeCreateSymbolicLink privilege; skip gracefully
+    // if creation fails rather than failing the test suite.
+    std::error_code ec;
+    fs::create_directory_symlink(tmp.path, sub / "loop", ec);
+    if (ec) {
+        // Cannot create symlink in this environment — nothing to test here.
+        return;
+    }
+
+    // Must complete without hanging or crashing.
+    const auto r = scan_directory(tmp.path);
+    // The symlink itself should be silently skipped; the real file must appear.
+    CHECK(r.total_bytes == 100);
+    CHECK(r.errors == 0);
+}
